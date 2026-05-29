@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Model checkpoints (kept outside the repo, e.g. /mnt/windows/model/pairvpr_models)
+*.pth
+*.pt
+*.ckpt
+*.safetensors
