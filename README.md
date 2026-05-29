@@ -13,10 +13,12 @@ elsevier_2026/
 ├── similarity_matrix.sh     # convenience wrapper
 ├── requirements.txt
 ├── README.md                # this file
-└── Pair-VPR/                # the Pair-VPR repo checkout
-    ├── pairvpr/             #   model + config package (imported by the script)
-    └── trained_models/      #   put pairvpr-vitG.pth here
+└── Pair-VPR/                # the Pair-VPR repo (git submodule)
+    └── pairvpr/             #   model + config package (imported by the script)
 ```
+
+The `pairvpr-vitG.pth` checkpoint is kept **outside** the repo (default
+`/mnt/windows/model/pairvpr_models/pairvpr-vitG.pth`); override with `--trained_ckpt`.
 
 `similarity_matrix.py` lives in the project root (not inside `Pair-VPR/`). It adds `Pair-VPR/`
 to `sys.path` and auto-locates the config and checkpoint there, so you can run it from this
@@ -36,17 +38,24 @@ folder with no path arguments.
 
 ## Setup
 
-**1. Install PyTorch for your GPU, then the rest of the deps.** For the RTX 5090:
+**1. Create the conda env, install PyTorch for your GPU, then the rest of the deps.**
+For the RTX 5090:
 
 ```bash
+conda create -n pairvpr python=3.13
+conda activate pairvpr
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install -r requirements.txt
 ```
 
-**2. Download the Pair-VPR vitG checkpoint (~4.7 GB)** into `Pair-VPR/trained_models/`:
+The `similarity_matrix.sh` wrapper auto-activates the `pairvpr` env (override the
+env name with `CONDA_ENV=<name>`).
+
+**2. Download the Pair-VPR vitG checkpoint (~4.7 GB).** It is kept **outside** the
+repo; the script defaults to `/mnt/windows/model/pairvpr_models/pairvpr-vitG.pth`:
 
 ```bash
-wget -O Pair-VPR/trained_models/pairvpr-vitG.pth \
+wget -O /mnt/windows/model/pairvpr_models/pairvpr-vitG.pth \
   https://huggingface.co/CSIRORobotics/Pair-VPR/resolve/main/pairvpr-vitG.pth
 ```
 
@@ -63,6 +72,8 @@ offline.
 From this folder:
 
 ```bash
+conda activate pairvpr
+
 # Default: Pair-VPR pair-classifier similarity, auto-selects GPU
 python similarity_matrix.py --images_dir /path/to/your/dataset --save_csv
 
@@ -73,7 +84,8 @@ python similarity_matrix.py --images_dir /path/to/your/dataset --method global
 python similarity_matrix.py --images_dir /path/to/your/dataset --method both --save_csv
 ```
 
-Or edit the image folder in [similarity_matrix.sh](similarity_matrix.sh) and run `bash similarity_matrix.sh`.
+Or edit the image folder in [similarity_matrix.sh](similarity_matrix.sh) and run
+`bash similarity_matrix.sh` — the wrapper activates the `pairvpr` conda env for you.
 
 ### Key options
 
@@ -82,7 +94,7 @@ Or edit the image folder in [similarity_matrix.sh](similarity_matrix.sh) and run
 | `--images_dir` | *(required)* | Folder of images to score (searched recursively). |
 | `--method` | `pair` | `pair` (Pair-VPR classifier), `global` (descriptor cosine), or `both`. |
 | `--output_dir` | `results_simmatrix` | Where outputs are written. |
-| `--trained_ckpt` | `Pair-VPR/trained_models/pairvpr-vitG.pth` | Checkpoint path. |
+| `--trained_ckpt` | `/mnt/windows/model/pairvpr_models/pairvpr-vitG.pth` | Checkpoint path. |
 | `--config-file` | `Pair-VPR/pairvpr/configs/pairvpr_performance.yaml` | Pair-VPR config (vitG). |
 | `--device` | `auto` | `auto` / `cuda` / `cpu`. |
 | `--extract_batch` | `32` | Image batch size for feature extraction (lower if GPU OOM). |
