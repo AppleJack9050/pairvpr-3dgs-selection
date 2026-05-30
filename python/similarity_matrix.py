@@ -10,8 +10,8 @@
 # for "same place"), so a higher logit means more similar; we pass it through a sigmoid.
 # A fast "global" method (cosine of the global descriptors) is also available.
 #
-# This script lives in the project root (alongside the Pair-VPR/ checkout) and adds
-# Pair-VPR/ to sys.path so the `pairvpr.*` package imports resolve.
+# This script lives in <repo>/python/ (alongside the sibling Pair-VPR/ checkout at <repo>/) and
+# adds Pair-VPR/ to sys.path so the `pairvpr.*` package imports resolve.
 
 
 import os
@@ -21,7 +21,9 @@ import argparse
 from pathlib import Path
 from glob import glob
 
-BASE_DIR = Path(__file__).parent.resolve()
+# The Pair-VPR checkout sits at <repo>/Pair-VPR; this file is at <repo>/python/, so the project
+# root is the parent of this file's directory.
+BASE_DIR = Path(__file__).resolve().parent.parent
 PAIRVPR_DIR = BASE_DIR / "Pair-VPR"
 sys.path.insert(0, str(PAIRVPR_DIR))
 
