@@ -10,9 +10,6 @@ Dublin, Ireland  ·  ³ School of Computer Science and Statistics, Trinity Colle
 
 📧 `sicheng.zhao@ucdconnect.ie` · `devs@tcd.ie`
 
-> **Status:** manuscript submitted to *Elsevier Applied Computing and Geosciences* (gold
-> open-access). DOI and final links will be added on acceptance — see [Citation](#citation).
-
 ---
 
 ## TL;DR
