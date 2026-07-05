@@ -1,14 +1,30 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
+.venv/
+venv/
 
-# Model checkpoints (kept outside the repo, e.g. /mnt/windows/model/pairvpr_models)
+# Model checkpoints / weights (kept outside the repo, e.g. /mnt/windows/model/pairvpr_models,
+# or ./models/ for the UniPR-3D single_model.ckpt)
 *.pth
 *.pt
 *.ckpt
 *.safetensors
+*.bin
+models/
 
-# Generated outputs (created by the scripts; usually written next to the dataset)
+# External model repos, cloned by the user (see README "Setup"). Pair-VPR is a submodule and is
+# tracked; EDTformer and UniPR-3D are plain clones and must NOT be committed here.
+/EDTformer/
+/UniPR-3D/
+
+# Generated outputs (created by the scripts; also written under results_<backend>/ by run_all.sh)
 results_simmatrix/
 results_subset/
+results_*/
 subsets/
+subset_*/
+output/
+*.npz
+*.npy

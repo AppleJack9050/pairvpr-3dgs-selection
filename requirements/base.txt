@@ -1,0 +1,13 @@
+# Shared base deps for all four VPR backends (forward-only feature extraction) + the numpy
+# selector (selection/remove_redundant.py, which needs only numpy). Install this together with a
+# per-backend file (requirements/<backend>.txt), or use the top-level requirements.txt for all.
+#
+# IMPORTANT (GPU): on an NVIDIA RTX 5090 (Blackwell / compute capability sm_120) install torch +
+# torchvision from the CUDA 12.8 wheel index FIRST, or CUDA kernels fail with "no kernel image is
+# available for execution on the device":
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+torch>=2.7            # verified with 2.11.0+cu128
+torchvision>=0.22     # verified with 0.26.0+cu128
+numpy>=1.24           # verified with 2.3.2
+Pillow>=10.0          # verified with 10.4.0
+tqdm>=4.60            # verified with 4.67.1

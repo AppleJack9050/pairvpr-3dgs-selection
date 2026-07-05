@@ -79,7 +79,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # the bash/ folder
 ROOT="$(dirname "$SCRIPT_DIR")"                              # repo root
-RR="$ROOT/python/remove_redundant.py"                       # the tool lives in python/
+RR="$ROOT/selection/remove_redundant.py"                    # the shared selector lives in selection/
 
 # Pick a Python interpreter (remove_redundant.py is numpy-only, so the conda env is optional).
 PY="${PYTHON:-python}"

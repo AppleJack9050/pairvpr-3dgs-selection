@@ -1,20 +1,17 @@
-# Python dependencies for similarity_matrix.py (Pair-VPR pairwise similarity matrix).
+# Install ALL four backends at once (base deps + every backend's pip extras). For a single
+# backend, use the smaller requirements/<backend>.txt instead.
 #
-# IMPORTANT (GPU): On an NVIDIA RTX 5090 (Blackwell / compute capability sm_120) you MUST
-# install torch + torchvision from the CUDA 12.8 wheel index, or CUDA kernels will fail with
-# "no kernel image is available for execution on the device":
+# Beyond pip, each backend also needs its model code + weights (see README "Setup"):
+#   * pairvpr  -> Pair-VPR/ git submodule + vitG checkpoint (kept outside the repo)
+#   * edtformer-> clone EDTformer/ ; weights auto-download from torch.hub
+#   * fol      -> nothing (model + backbone auto-download from torch.hub)
+#   * unipr3d  -> clone UniPR-3D/ ; single_model.ckpt auto-downloads from HF
 #
+# IMPORTANT (GPU): on an RTX 5090 (Blackwell / sm_120) install torch first from the cu128 index --
 #     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-#
-# Then install the rest with: pip install -r requirements.txt
-
-torch>=2.7            # verified with 2.11.0+cu128
-torchvision>=0.22     # verified with 0.26.0+cu128
-numpy>=1.24           # verified with 2.3.2
-Pillow>=10.0          # verified with 10.4.0
-omegaconf>=2.3        # verified with 2.3.0
-tqdm>=4.60            # verified with 4.67.1
-
-# Optional — NOT required. The model runs on a pure-PyTorch attention fallback without these:
-#   xformers          # faster decoder attention (needs a CUDA build matching your torch)
-#   faiss-cpu         # only used by Pair-VPR's own eval.py, not by similarity_matrix.py
+-r requirements/base.txt
+omegaconf>=2.3        # pairvpr
+timm                  # edtformer
+huggingface_hub       # fol, unipr3d
+loralib               # unipr3d
+einops                # unipr3d

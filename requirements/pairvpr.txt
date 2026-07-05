@@ -1,0 +1,9 @@
+# Pair-VPR backend  (backends/pairvpr/similarity_matrix.py).
+#
+# Also required (not pip-installable):
+#   * the Pair-VPR/ git submodule at the repo root:  git submodule update --init Pair-VPR
+#   * the vitG checkpoint (~4.7 GB), kept OUTSIDE the repo (default
+#     /mnt/windows/model/pairvpr_models/pairvpr-vitG.pth; override with --trained_ckpt). See README.
+# xformers / faiss are NOT needed -- the model uses a pure-PyTorch attention fallback.
+-r base.txt
+omegaconf>=2.3        # verified with 2.3.0
