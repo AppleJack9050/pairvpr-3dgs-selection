@@ -1,197 +1,257 @@
-# Diverse image-subset selection — a multi-backend VPR toolkit
+# Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based Image Selection: A Glacier UAV Case Study
 
-Select maximally-diverse, redundancy-pruned image subsets from a larger dataset (e.g. for a
-"reconstruction quality vs #images" ablation, or to prune a set before COLMAP / SfM). The pipeline
-is always the **same two steps**; only the embedding model in step 1 differs:
+Official code for the paper **"Towards Efficient 3D Gaussian Splatting Reconstruction with
+PairVPR-Based Image Selection: A Glacier UAV Case Study."**
 
-```
-  images/ ──▶  [1] similarity matrix        ──▶  [2] Facility Location selection  ──▶  subset/
-              backends/<model>/*.py               selection/remove_redundant.py
-              (pairvpr | edtformer | fol |        (shared, numpy-only, model-agnostic)
-               unipr3d)  →  NxN S in [0,1]
-```
+Sicheng Zhao¹²,  Arjun Pakrashi²,  Soumyabrata Dev¹²³ (corresponding author)
 
-1. **Similarity matrix** — embed every image with a Visual Place Recognition (VPR) model and build
-   an `N×N` matrix `S` with `S[i, j] ∈ [0, 1]` (higher = more similar; diagonal 1.0, symmetric).
-   Four interchangeable **backends** produce this matrix in one common format.
-2. **Selection** — `selection/remove_redundant.py` greedily maximizes the **Facility Location**
-   submodular objective `f(S) = Σ_i max_{j∈S} S[i,j]` (CELF lazy-greedy, a `(1 − 1/e)`
-   approximation) to keep the least-redundant, most representative subset of the requested size.
-   It depends only on **numpy** and is identical for every backend — the matrix format is the
-   contract between the two steps, so backends are freely swappable.
+¹ ADAPT SFI Research Centre, Dublin, Ireland  ·  ² School of Computer Science, University College
+Dublin, Ireland  ·  ³ School of Computer Science and Statistics, Trinity College Dublin, Ireland
 
-This repo unifies four previously-separate tools (Pair-VPR / EDTformer / FoL / UniPR-3D) into one
-codebase with a **single shared selector**.
+📧 `sicheng.zhao@ucdconnect.ie` · `devs@tcd.ie`
 
-## Repository layout
+> **Status:** preprint. Venue / DOI / arXiv links will be added on publication — see
+> [Citation](#citation).
+
+---
+
+## TL;DR
+
+UAV surveys capture hundreds of highly overlapping images, most of which are redundant for 3D
+reconstruction. This repository **selects a small, diverse, non-redundant subset** of the images so
+that **3D Gaussian Splatting (3DGS)** reconstruction runs substantially faster — with little loss of
+quality at moderate budgets, and a graceful trade-off under more aggressive pruning. Selection is a
+two-step pipeline:
 
 ```
-elsevier_2026/
-├── README.md                 # this file
-├── requirements.txt          # install ALL backends at once
-├── requirements/             # per-backend dependency files
-│   ├── base.txt              #   torch, torchvision, numpy, Pillow, tqdm  (shared)
-│   ├── pairvpr.txt  edtformer.txt  fol.txt  unipr3d.txt
+  images/ ──▶ [1] pairwise similarity  ──▶ [2] Facility-Location selection ──▶ subset/ ──▶ COLMAP + 3DGS
+             a VPR model → NxN matrix       greedy submodular coverage         (external reconstruction)
+             K_ij ∈ [0,1]  (Sec. 3.2)       (Algorithm 1, Sec. 3.3)
+```
+
+The paper's proposed selector uses **PairVPR** pairwise similarity; the repository also implements
+the three descriptor-based baselines from the ablation (FoL, UniPR-3D, EDTformer) behind a common
+interface, so every method is reproducible with one command.
+
+## Abstract
+
+Large-scale 3D reconstruction from UAV imagery is essential for remote sensing and environmental
+monitoring, yet modern neural rendering methods such as 3D Gaussian Splatting (3DGS) are
+computationally intensive due to redundant views. We present a scalable image subset-selection
+framework that integrates transformer-based Visual Place Recognition (PairVPR) with a
+facility-location selection strategy to identify and remove redundant views while maintaining
+spatial coverage. On six standard benchmark scenes (five Mip-NeRF360 scenes and the Tanks\&Temples
+*Truck* scene), under a fixed image budget PairVPR-based selection attains the best average PSNR,
+SSIM, and LPIPS among all evaluated VPR selectors. In a case study on a real-world glacier UAV
+survey of 589 images, pruning to a compact subset reduces overall runtime by more than half at the
+most aggressive setting while incurring only a modest loss in reconstruction quality, and PairVPR
+again attains the best reconstruction quality among the evaluated selectors.
+
+## Method in one paragraph
+
+For every unordered image pair, PairVPR produces a symmetric similarity `K_ij ∈ [0,1]` (higher =
+more overlapping; `K_ii ≈ 1`). Subset selection is cast as **facility location** — pick the size-`k`
+subset `S` that maximizes the monotone submodular coverage objective
+
+```
+f(S) = Σ_i  max_{j∈S} K_ij
+```
+
+so that every image in the collection has a close representative in `S`. The greedy algorithm
+(Algorithm 1 in the paper) gives a `(1 − 1/e) ≈ 0.63` approximation, starts from the empty set (its
+first pick is automatically the collection medoid), and prunes near-duplicates because once a region
+of viewpoint space is covered, further views there add almost no marginal gain. The selected subset
+is then reconstructed with a standard **COLMAP (SfM) → 3DGS** pipeline.
+
+## What this repository provides
+
+This repo covers **the image-selection stage** (the paper's contribution). Reconstruction (COLMAP +
+3DGS) uses the standard external tools with the exact settings in
+[Implementation details](#implementation-details). Selection is split into two reusable steps and
+supports **four interchangeable VPR backends** — the proposed method plus the three ablation
+baselines:
+
+| Backend (this repo) | Role in the paper | Model | Similarity |
+|---------------------|-------------------|-------|------------|
+| **`pairvpr`** | **proposed method** | [Pair-VPR](https://csiro-robotics.github.io/Pair-VPR/) **PairVPR-p (ViT-G)**, frozen | 2nd-stage **pair classifier** `K_ij∈[0,1]` (default) |
+| `fol` | ablation baseline | [FoL](https://github.com/chenshunpeng/FoL) "Focus on Local" (DINOv2 ViT-L) | global-descriptor cosine |
+| `unipr3d` | ablation baseline | [UniPR-3D](https://github.com/dtc111111/UniPR-3D) (VGGT + DINOv2 / SALAD) | global-descriptor cosine |
+| `edtformer` | ablation baseline | [EDTformer](https://github.com/Tong-Jin01/EDTformer) (DINOv2 ViT-B/14 + decoder) | global-descriptor cosine |
+
+All four write the **same matrix format**, and all feed the **same** facility-location selector, so
+the paper's selection-method ablation varies *only* the similarity model — exactly as reproduced here.
+PairVPR-p (ViT-G) is used as a frozen, off-the-shelf pairwise scorer from the official HuggingFace
+release ([CSIRORobotics/Pair-VPR](https://huggingface.co/CSIRORobotics/Pair-VPR)); no PairVPR weights
+are fine-tuned.
+
+## Repository structure
+
+```
+.
 ├── selection/
-│   └── remove_redundant.py   # THE shared, model-agnostic selector (Facility Location / max-min)
-├── backends/
-│   ├── pairvpr/similarity_matrix.py      # Pair-VPR (vitG): pair-classifier OR global-cosine
-│   ├── edtformer/edtformer_similarity.py # EDTformer (DINOv2 ViT-B/14 + decoder): global-cosine
-│   ├── fol/fol_similarity.py             # FoL "Focus on Local" (DINOv2 ViT-L): global-cosine
-│   └── unipr3d/unipr3d_similarity.py     # UniPR-3D (VGGT + DINOv2 / SALAD): global-cosine
+│   └── remove_redundant.py     # Algorithm 1: greedy facility-location selection (numpy only)
+├── backends/                   # step 1 — one similarity script per VPR model
+│   ├── pairvpr/similarity_matrix.py       # PairVPR (proposed): --method pair | global
+│   ├── fol/fol_similarity.py              # FoL (baseline)
+│   ├── unipr3d/unipr3d_similarity.py      # UniPR-3D (baseline)
+│   └── edtformer/edtformer_similarity.py  # EDTformer (baseline)
 ├── bash/
-│   ├── run_all.sh            # end-to-end for any backend (matrix + selection over sizes)
-│   ├── similarity_matrix.sh  # step 1 only, model-aware dispatcher
-│   ├── remove_redundant.sh   # step 2 only
-│   └── make_subsets.sh       # step 2b: a nested series of subsets (e.g. 300..N)
-├── Pair-VPR/                 # git submodule (Pair-VPR model code)         [pairvpr]
-├── EDTformer/                # you clone this (git-ignored)                [edtformer]
-├── UniPR-3D/                 # you clone this (git-ignored)                [unipr3d]
-└── models/                   # UniPR-3D checkpoint lands here (git-ignored)
+│   ├── run_all.sh              # end-to-end: matrix + selection over several budgets k
+│   ├── similarity_matrix.sh    # step 1 only (model-aware dispatcher)
+│   ├── remove_redundant.sh     # step 2 only
+│   └── make_subsets.sh         # a nested series of subsets (e.g. 300..N) for the budget sweep
+├── requirements/               # per-backend dependency files (+ union requirements.txt)
+├── Pair-VPR/                   # git submodule (PairVPR model code)                [pairvpr]
+├── EDTformer/                  # you clone this (git-ignored)                      [edtformer]
+├── UniPR-3D/                   # you clone this (git-ignored)                      [unipr3d]
+└── models/                     # UniPR-3D checkpoint lands here (git-ignored)
 ```
-
-## The four backends
-
-| Backend | Model | Descriptor / similarity | Extra setup needed |
-|---------|-------|-------------------------|--------------------|
-| **pairvpr** | [Pair-VPR](https://csiro-robotics.github.io/Pair-VPR/) vitG (DINOv2-G) | 2nd-stage **pair classifier** (default) or global cosine | `Pair-VPR/` **submodule** + vitG checkpoint (~4.7 GB, kept outside the repo) |
-| **edtformer** | [EDTformer](https://github.com/Tong-Jin01/EDTformer) (DINOv2 ViT-B/14 + decoder) | 4096-d global, cosine | clone `EDTformer/`; weights (~449 MB) auto-download from torch.hub |
-| **fol** | [FoL](https://github.com/chenshunpeng/FoL) "Focus on Local" (DINOv2 ViT-L) | 8448-d global, cosine | **nothing** — model + backbone auto-download from torch.hub |
-| **unipr3d** | [UniPR-3D](https://github.com/dtc111111/UniPR-3D) (VGGT + DINOv2 / SALAD + LoRA) | 17152-d global, cosine | clone `UniPR-3D/`; `single_model.ckpt` (~3.7 GB) auto-downloads from HF |
-
-**Which to use?** `pairvpr --method pair` is the most accurate but O(N²) decoder passes (heavy;
-fine for a few hundred images). The three global-cosine backends are O(N) extraction + one matmul,
-so they scale to thousands of images cheaply — `fol` is the easiest to set up (no clone, no manual
-checkpoint). All four write the identical matrix format, so you can compare them on the same set.
 
 ## Setup
 
-**1. Python env + deps.** Python 3.11+ (verified on 3.13), PyTorch ≥ 2.7 with a CUDA build matching
-your GPU. On an **RTX 5090 / Blackwell (sm_120)** you must use a **CUDA 12.8** torch build
-(`torch 2.11.0+cu128`), or kernels fail with *"no kernel image is available"*:
+**1. Python environment.** Python 3.11+ (verified on 3.13), PyTorch ≥ 2.7 with a CUDA build matching
+your GPU. On an **RTX 5090 / Blackwell (sm_120)** install torch from the **CUDA 12.8** wheel index
+first, or kernels fail with *"no kernel image is available"*:
 
 ```bash
 conda create -n pairvpr python=3.13 && conda activate pairvpr
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements.txt                 # all backends
-# ...or just one backend, e.g.:  pip install -r requirements/fol.txt
+pip install -r requirements.txt            # all backends
+# ...or a single backend, e.g. the proposed method only:
+pip install -r requirements/pairvpr.txt
 ```
 
-The `bash/` wrappers auto-activate the `pairvpr` conda env (override with `CONDA_ENV=<name>`). The
-selection step (`selection/remove_redundant.py`) is numpy-only, so any env works for it.
+**2. Model code + weights** (only for the backend you use):
 
-**2. Per-backend model code + weights.**
-
-- **pairvpr** — init the submodule and download the vitG checkpoint (kept outside the repo):
+- **pairvpr (proposed)** — init the submodule and download the PairVPR-p (ViT-G) checkpoint
+  (~4.7 GB, kept outside the repo; override the path with `--trained_ckpt`):
   ```bash
   git submodule update --init Pair-VPR
   wget -O /mnt/windows/model/pairvpr_models/pairvpr-vitG.pth \
     https://huggingface.co/CSIRORobotics/Pair-VPR/resolve/main/pairvpr-vitG.pth
   ```
-  Override the checkpoint path with `--trained_ckpt`. (This repo ships a small fix to
-  `Pair-VPR/pairvpr/models/tools/blocks.py` so it runs without xformers.)
-- **edtformer** — clone the model code (weights auto-download on first run):
-  ```bash
-  git clone https://github.com/Tong-Jin01/EDTformer.git EDTformer
-  ```
-- **fol** — nothing to do. On first run it fetches `chenshunpeng/FoL` + `facebookresearch/dinov2`
-  into `~/.cache/torch/hub` (needs internet once, then runs offline).
-- **unipr3d** — clone the model code (checkpoint auto-downloads into `models/`):
-  ```bash
-  git clone https://github.com/dtc111111/UniPR-3D.git UniPR-3D
-  ```
+- **fol** — nothing to do (model + DINOv2 backbone auto-download from torch.hub on first run).
+- **unipr3d** — `git clone https://github.com/dtc111111/UniPR-3D.git UniPR-3D` (checkpoint
+  auto-downloads into `models/`).
+- **edtformer** — `git clone https://github.com/Tong-Jin01/EDTformer.git EDTformer` (weights
+  auto-download from the v1.0.0 torch.hub release).
 
-`EDTformer/` and `UniPR-3D/` are git-ignored — they are external clones, not committed here.
+## Reproducing the paper
 
-## Usage
+### Step 1 + 2 — select a diverse subset
 
-### Quick start — end to end (any backend)
-
-`bash/run_all.sh <backend> <images_dir> [sizes…]` builds the matrix once, then selects each size:
+The one-shot wrapper builds the similarity matrix once and then selects each budget `k`:
 
 ```bash
-bash bash/run_all.sh fol      /path/to/images                 # sizes 300 332 364 (default)
-bash bash/run_all.sh pairvpr  /path/to/images  50 100 200
-bash bash/run_all.sh unipr3d  /path/to/images
+# <backend> ∈ {pairvpr, fol, unipr3d, edtformer};  proposed method = pairvpr
+bash bash/run_all.sh pairvpr /path/to/glacier/images 300 332 364 396 428 461 493 525 557
 ```
 
-Outputs land under `results_<backend>/` (git-ignored):
-`results_<backend>/results_simmatrix/` (the matrix) and `results_<backend>/subset_<k>/` (per size:
-`selected_images.txt`, `selected_indices.npy`, `removed_images.txt`, `selection_report.csv`, and
-`images/` symlinks). Override `OUT_DIR`, `EXPORT_MODE` (`symlink|copy|hardlink`), `METHOD`.
-
-### The two steps by hand
+or run the two steps by hand:
 
 ```bash
-# Step 1 — similarity matrix (model-aware wrapper; forwards extra flags to the backend)
-bash bash/similarity_matrix.sh fol /path/to/images --output_dir results_simmatrix
-#   ...or call the backend script directly:
-python backends/fol/fol_similarity.py --images_dir /path/to/images --save_csv
+# Step 1 — pairwise similarity matrix (writes results_simmatrix/similarity_matrix.npy + image_order.txt)
+python backends/pairvpr/similarity_matrix.py --images_dir /path/to/images --method pair --save_csv
 
-# Step 2 — selection from that matrix (numpy-only; the pairvpr env is optional here)
-python selection/remove_redundant.py --matrix results_simmatrix -k 300 \
-    --images_dir /path/to/images --export_dir subset_300/images --export_mode symlink
+# Step 2 — facility-location selection for a budget k (Algorithm 1; numpy only, no GPU needed)
+python selection/remove_redundant.py --matrix results_simmatrix -k 396 \
+    --images_dir /path/to/images --export_dir subset_396/images --export_mode symlink
 ```
 
-`--matrix` accepts the whole `results_simmatrix` **folder** (it finds `similarity_matrix.npy` and
-`image_order.txt` inside) or a specific `.npy`/`.csv`. Use `--fraction 0.2` instead of `-k` to keep
-a percentage; `--method maxmin` for farthest-point (max-min dispersion) instead of coverage;
-`--verify` to cross-check the lazy greedy against the naive greedy on small sets.
+Each `subset_<k>/` gets `selected_images.txt`, `selected_indices.npy`, `removed_images.txt`,
+`selection_report.csv`, and an `images/` folder ready for COLMAP. To generate the whole nested
+budget sweep at once, see `bash/make_subsets.sh`.
 
-### A nested series of subsets
+> **Held-out protocol (paper).** For the glacier study the fixed 74-image test set (every 8th image)
+> is always retained and excluded from 3DGS training, so a budget `k` corresponds to `k − 74`
+> training views; benchmark scenes use `k = 100` training views with every 8th image held out. The
+> selector here chooses the subset from the similarity matrix; the train/test split is applied around
+> it per this protocol.
 
-`bash/make_subsets.sh` loops the selector over evenly-spaced sizes (default 10 subsets from 300 up
-to the full size N) and exports each as its own COLMAP-ready `images/` folder. Because the greedy is
-deterministic and prefix-consistent, the subsets are **nested** (`subset_300 ⊂ … ⊂ subset_N`):
+### Step 3 — reconstruct (external: COLMAP + 3DGS)
 
-```bash
-MATRIX=results_simmatrix IMAGES_DIR=/path/to/images bash bash/make_subsets.sh /out/subsets
-bash bash/make_subsets.sh -h    # all options (--start, -n, --method, --mode, …)
+Run each selected `subset_<k>/images` through a standard **COLMAP SfM → 3DGS** pipeline
+([graphdeco-inria/gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting)) using
+the settings in [Implementation details](#implementation-details), then evaluate PSNR / SSIM / LPIPS
+on the held-out test views and read SfM reprojection RMSE from COLMAP. This stage is not vendored
+here; the numbers in the paper come from that off-the-shelf pipeline with fixed settings.
+
+## Datasets
+
+- **Glacier UAV survey (case study).** 589 images from a DJI FC330 (pinhole + radial/tangential
+  distortion), native `3992×2992` (GSD 3.49 mm/px at 11.6 m altitude, ≈ `1.92×10³` m²). Images are
+  undistorted and downscaled to a maximum of `2000×1498`. Fixed test set = every 8th image (74
+  images). Evaluated budgets `k ∈ {300, 332, 364, 396, 428, 461, 493, 525, 557}` plus the full set
+  (589). *Availability: see the paper / contact the authors.*
+- **Mip-NeRF360** (benchmark) — five outdoor scenes: Garden, Bicycle, Stump, Treehill, Flowers.
+- **Tanks & Temples** (benchmark) — the *Truck* scene.
+
+## Implementation details
+
+Exact settings used for every reconstruction (identical across all runs; from the paper's
+implementation-details table):
+
+| Component | Configuration |
+|-----------|---------------|
+| **COLMAP** — feature extraction | SIFT, max 8192 features |
+| COLMAP — peak threshold | 0.01 |
+| COLMAP — matching | exhaustive matcher |
+| COLMAP — bundle adjustment | default |
+| **3DGS** — mode | default |
+| 3DGS — position learning rate | `1.6×10⁻⁴` |
+| 3DGS — training iterations | 30k |
+| 3DGS — Gaussian count | 10k |
+| 3DGS — spherical harmonics | degree 3 |
+| 3DGS — densification | 500 |
+| **Environment** | NVIDIA RTX 5090 (32 GB) · Ubuntu 24.04.2 · CUDA 12.9 / cuDNN 9.1.2 · PyTorch 2.8.0 |
+
+## Results (headline)
+
+**Benchmark scenes — best VPR selector at a fixed budget `k = 100`** (mean over 3 seeds; full
+per-scene numbers are in the paper). PairVPR gives the best average on all three metrics:
+
+| Selector | PSNR ↑ | SSIM ↑ | LPIPS ↓ |
+|----------|:------:|:------:|:-------:|
+| **PairVPR (ours)** | **20.75** | **0.606** | **0.372** |
+| EDTformer | 20.47 | 0.602 | 0.380 |
+| FoL | 19.77 | 0.590 | 0.380 |
+| UniPR-3D | 19.62 | 0.580 | 0.391 |
+
+**Glacier quality–efficiency sweep** (PairVPR selector). Quality saturates by `k ≈ 525` (on par with
+the full set) while runtime falls sharply — `k = 396` keeps near-peak quality at ~40% lower runtime;
+end-to-end runtime drops from ~77 min (589) to ~33 min (300). Full per-budget tables (PSNR/SSIM/
+LPIPS/RMSE and SfM/3DGS/VRAM) are in the paper's glacier quality and efficiency tables.
+
+**Glacier selection-method ablation** (mean ± std over 4 runs; PairVPR is best on every metric at
+every budget):
+
+| Method | k=300 PSNR↑ | SSIM↑ | LPIPS↓ | k=332 PSNR↑ | SSIM↑ | LPIPS↓ | k=364 PSNR↑ | SSIM↑ | LPIPS↓ |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **PairVPR (ours)** | **20.54** | **0.621** | **0.462** | **20.98** | **0.630** | **0.445** | **21.20** | **0.625** | **0.458** |
+| FoL | 19.89 | 0.594 | 0.489 | 20.01 | 0.610 | 0.481 | 19.72 | 0.595 | 0.488 |
+| UniPR-3D | 19.84 | 0.593 | 0.495 | 19.94 | 0.606 | 0.482 | 19.99 | 0.617 | 0.474 |
+| EDTformer | 19.54 | 0.588 | 0.495 | 19.98 | 0.607 | 0.483 | 19.76 | 0.612 | 0.481 |
+
+## Citation
+
+If you use this code or find the work useful, please cite the paper (preprint — update on
+publication):
+
+```bibtex
+@article{zhao2026pairvpr,
+  title   = {Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based
+             Image Selection: A Glacier UAV Case Study},
+  author  = {Zhao, Sicheng and Pakrashi, Arjun and Dev, Soumyabrata},
+  journal = {Preprint},
+  year    = {2026}
+}
 ```
 
-## Output format (the backend↔selector contract)
+## Acknowledgements & licensing
 
-Every backend writes, into `--output_dir`:
-
-- `similarity_matrix.npy` — float32 `N×N` matrix in `[0, 1]` (`pairvpr --method both` writes
-  `_pair` / `_global` variants instead of a bare file).
-- `image_order.txt` — image paths (relative to `--images_dir`), one per line, in matrix row/column
-  order. `--save_csv` also writes `similarity_matrix.csv`.
-
-The selector maps matrix row/column *i* to line *i* of `image_order.txt`; it errors unless the
-counts match and prints the first/last filenames so you can eyeball the alignment. Load a matrix
-back with:
-
-```python
-import numpy as np
-S = np.load("results_simmatrix/similarity_matrix.npy")
-names = open("results_simmatrix/image_order.txt").read().splitlines()
-```
-
-## How selection works
-
-`f(S) = Σ_i max_{j∈S} sim(i, j)` is a monotone submodular **coverage** function: each image
-contributes its similarity to the most similar *selected* image, so `f(S)` is large only when every
-image is well represented by some pick. Greedy maximization spreads the selection out — once an
-image is chosen, near-duplicates of it yield almost no marginal gain and are skipped, which is
-exactly "remove redundant images". `--method maxmin` instead maximizes the *minimum* pairwise
-dissimilarity (the most mutually-uncorrelated subset). The selector prints a diversity self-check:
-the kept subset's mean pairwise similarity should be **lower** than the whole set's.
-
-## Notes & troubleshooting
-
-- **`no kernel image is available` on GPU** → your torch CUDA build doesn't match the GPU. For the
-  RTX 5090 reinstall torch from the cu128 index (see Setup).
-- **GPU out of memory** → lower `--extract_batch` (and, for `pairvpr`, `--pair_batch`). `pairvpr`
-  supports `--store_fp16` to halve dense-map RAM.
-- **First run needs internet** for `fol` / `edtformer` (torch.hub) and `unipr3d` (HF checkpoint);
-  afterwards the caches are warm and they run offline.
-- **Scaling** → the `pairvpr` pair method is O(N²) decoder passes; for thousands of images use a
-  global-cosine backend (`fol` / `edtformer` / `unipr3d`, or `pairvpr --method global`). Selection
-  itself is cheap (CELF is ~O(N²) once, then near-linear per pick).
-
-> This repository combines four formerly-independent tools. EDTformer originally bundled its own
-> `apricot`-based selection in a single `select_diverse_subset.py`; it is now
-> `backends/edtformer/edtformer_similarity.py` (matrix only) + the shared
-> `selection/remove_redundant.py`, matching the other three backends (same result — both maximize
-> the same Facility Location objective with lazy greedy).
+This project builds on the released code and weights of **Pair-VPR**, **FoL**, **UniPR-3D**, and
+**EDTformer**; please cite and comply with each upstream project's own licence. In particular, the
+bundled **Pair-VPR** submodule is licensed **CSIRO BSD-3-Clause-Clear (Non-Commercial)** (see
+`Pair-VPR/LICENSE`) — the proposed `pairvpr` backend inherits that non-commercial restriction.
+Reconstruction uses **COLMAP** and **3D Gaussian Splatting**, which carry their own licences. No
+licence is asserted here over the third-party model code or weights.
