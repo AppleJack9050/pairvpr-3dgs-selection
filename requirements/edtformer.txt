@@ -1,0 +1,11 @@
+# EDTformer backend  (backends/edtformer/edtformer_similarity.py).
+#
+# Also required: clone the model CODE so `network` is importable (weights are separate):
+#     git clone https://github.com/Tong-Jin01/EDTformer.git EDTformer
+# The release weights (EDTformer.pth, ~449 MB) auto-download from the v1.0.0 torch.hub release on
+# first run, cached under ~/.cache/torch/hub/.
+#
+# NOTE: apricot-select is NO LONGER a dependency -- in the unified layout EDTformer emits a standard
+# similarity matrix and the shared numpy selector (selection/remove_redundant.py) does selection.
+-r base.txt
+timm                  # DINOv2 ViT-B/14 backbone used by network.VPRNet

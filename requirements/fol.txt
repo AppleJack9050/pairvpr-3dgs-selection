@@ -1,0 +1,8 @@
+# FoL ("Focus on Local") backend  (backends/fol/fol_similarity.py).
+#
+# No clone or manual checkpoint needed: the model AND its DINOv2 backbone are pulled from torch.hub
+# on first run (chenshunpeng/FoL + facebookresearch/dinov2), cached under ~/.cache/torch/hub/.
+# Needs internet once (a missing-xFormers warning from DINOv2 is harmless -- vanilla-attention
+# fallback).
+-r base.txt
+huggingface_hub

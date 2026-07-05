@@ -1,0 +1,13 @@
+# UniPR-3D backend  (backends/unipr3d/unipr3d_similarity.py).
+#
+# Also required: clone the model CODE so `vggt` is importable:
+#     git clone https://github.com/dtc111111/UniPR-3D.git UniPR-3D
+# The single-frame checkpoint (single_model.ckpt, ~3.7 GB) auto-downloads from HF dtc111/UniPR-3D
+# on first run (into models/), or place it there yourself.
+#
+# NOT needed for forward-only extraction: faiss, pytorch-metric-learning, pytorch-lightning,
+# xformers (the vendored vggt attention uses torch SDPA).
+-r base.txt
+huggingface_hub
+loralib
+einops

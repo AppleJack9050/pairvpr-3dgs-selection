@@ -10,8 +10,8 @@
 # for "same place"), so a higher logit means more similar; we pass it through a sigmoid.
 # A fast "global" method (cosine of the global descriptors) is also available.
 #
-# This script lives in <repo>/python/ (alongside the sibling Pair-VPR/ checkout at <repo>/) and
-# adds Pair-VPR/ to sys.path so the `pairvpr.*` package imports resolve.
+# This script lives in <repo>/backends/pairvpr/ (with the Pair-VPR/ submodule checkout at the
+# repo root <repo>/) and adds Pair-VPR/ to sys.path so the `pairvpr.*` package imports resolve.
 
 
 import os
@@ -21,10 +21,10 @@ import argparse
 from pathlib import Path
 from glob import glob
 
-# The Pair-VPR checkout sits at <repo>/Pair-VPR; this file is at <repo>/python/, so the project
-# root is the parent of this file's directory.
-BASE_DIR = Path(__file__).resolve().parent.parent
-PAIRVPR_DIR = BASE_DIR / "Pair-VPR"
+# The Pair-VPR checkout sits at <repo>/Pair-VPR; this file is at <repo>/backends/pairvpr/, so the
+# repo root is two levels up from this file's directory.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PAIRVPR_DIR = REPO_ROOT / "Pair-VPR"
 sys.path.insert(0, str(PAIRVPR_DIR))
 
 import numpy as np
@@ -58,7 +58,7 @@ DEFAULT_CONFIG = str(PAIRVPR_DIR / "pairvpr" / "configs" / "pairvpr_performance.
 # --------------------------------------------------------------------------------------
 def resolve_path(path: str) -> str:
     """Accept paths that are absolute, relative to CWD, or relative to the Pair-VPR checkout."""
-    for candidate in (path, PAIRVPR_DIR / path, BASE_DIR / path):
+    for candidate in (path, PAIRVPR_DIR / path, REPO_ROOT / path):
         if os.path.exists(candidate):
             return str(candidate)
     return path

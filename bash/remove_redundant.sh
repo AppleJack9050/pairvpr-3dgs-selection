@@ -4,7 +4,7 @@
 # This step is pure-numpy (no torch / GPU), so the conda env is optional.
 set -euo pipefail
 
-# Repo root = parent of this bash/ folder; the Python scripts live in <root>/python/.
+# Repo root = parent of this bash/ folder; the shared selector lives in <root>/selection/.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Activate the project's conda env if present (override with CONDA_ENV=<name>); harmless to skip.
@@ -27,7 +27,7 @@ export_args=()
 [[ -n "$IMAGES_DIR" ]] && export_args+=(--images_dir "$IMAGES_DIR")
 [[ -n "$EXPORT_DIR" ]] && export_args+=(--export_dir "$EXPORT_DIR" --export_mode "$EXPORT_MODE")
 
-python "$ROOT/python/remove_redundant.py" \
+python "$ROOT/selection/remove_redundant.py" \
     --matrix results_simmatrix \
     --method facility \
     -k 50 \
