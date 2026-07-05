@@ -10,8 +10,8 @@ Dublin, Ireland  ·  ³ School of Computer Science and Statistics, Trinity Colle
 
 📧 `sicheng.zhao@ucdconnect.ie` · `devs@tcd.ie`
 
-> **Status:** preprint. Venue / DOI / arXiv links will be added on publication — see
-> [Citation](#citation).
+> **Status:** manuscript submitted to *Elsevier Applied Computing and Geosciences* (gold
+> open-access). DOI and final links will be added on acceptance — see [Citation](#citation).
 
 ---
 
@@ -242,7 +242,8 @@ publication):
   title   = {Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based
              Image Selection: A Glacier UAV Case Study},
   author  = {Zhao, Sicheng and Pakrashi, Arjun and Dev, Soumyabrata},
-  journal = {Preprint},
+  journal = {Applied Computing and Geosciences},
+  note    = {Manuscript submitted; under review},
   year    = {2026}
 }
 ```
