@@ -17,31 +17,70 @@ author = {Sicheng Zhao and Arjun Pakrashi and Soumyabrata Dev},
 ```
 
 ## Code Organization
-All codes are written in `python` and `bash`. The method is a two-step image-selection pipeline: compute a pairwise image-similarity matrix with a Visual Place Recognition (VPR) model (`backends/`), then select a diverse, non-redundant subset by greedy facility location (`selection/`). PairVPR is the proposed method; FoL, UniPR-3D, and EDTformer are the baselines used in the ablation. The selected subset is then reconstructed with a standard COLMAP + 3D Gaussian Splatting pipeline (external).
+All codes are written in `python` and `bash`. The method has two steps: compute a pairwise image-similarity matrix with a Visual Place Recognition model (`backends/`), then select a diverse, non-redundant subset by greedy facility location (`selection/`). PairVPR is the proposed method; FoL, UniPR-3D, and EDTformer are the ablation baselines. The selected subset is reconstructed with a standard COLMAP + 3D Gaussian Splatting pipeline.
 
 ### Code
-The scripts to reproduce the image-selection results in the paper are as follows:
 + `backends/pairvpr/similarity_matrix.py`: PairVPR (proposed) pairwise-similarity matrix
-+ `backends/fol/fol_similarity.py`: FoL baseline global-descriptor similarity matrix
-+ `backends/unipr3d/unipr3d_similarity.py`: UniPR-3D baseline global-descriptor similarity matrix
-+ `backends/edtformer/edtformer_similarity.py`: EDTformer baseline global-descriptor similarity matrix
++ `backends/{fol,unipr3d,edtformer}/*_similarity.py`: baseline global-descriptor similarity matrices
 + `selection/remove_redundant.py`: greedy facility-location subset selection (Algorithm 1 in the paper)
 + `bash/run_all.sh`: end-to-end wrapper — similarity matrix, then selection over several budgets `k`
-+ `bash/similarity_matrix.sh`, `bash/remove_redundant.sh`, `bash/make_subsets.sh`: individual-step wrappers
-+ `requirements/`: per-backend Python dependencies (`base`, `pairvpr`, `fol`, `unipr3d`, `edtformer`)
-
-### Setup
-+ Install dependencies: `pip install -r requirements.txt` (all backends), or `pip install -r requirements/<backend>.txt` for one. On an NVIDIA RTX 5090 (Blackwell) install torch from the CUDA 12.8 wheel index first.
-+ `pairvpr` (proposed): `git submodule update --init Pair-VPR`, then download the ViT-G checkpoint from HuggingFace `CSIRORobotics/Pair-VPR` (Pair-VPR is licensed CSIRO BSD-3-Clause-Clear, non-commercial).
-+ `edtformer` / `unipr3d`: `git clone` the model repo into `EDTformer/` / `UniPR-3D/` (weights/checkpoints auto-download on first run).
-+ `fol`: nothing extra — the model and DINOv2 backbone auto-download via `torch.hub`.
++ `requirements/`: per-backend Python dependencies
 
 ### Usage
-Compute the similarity matrix once and select the paper's subset budgets in one command (`<backend>` = `pairvpr` | `fol` | `unipr3d` | `edtformer`):
 ```
 bash bash/run_all.sh pairvpr /path/to/images 300 332 364 396 428 461 493 525 557
 ```
-Each `subset_<k>/` contains the selected image list, indices, a per-pick selection report, and an `images/` folder ready to feed into COLMAP + 3D Gaussian Splatting.
+Setup notes: `pip install -r requirements.txt`; for `pairvpr` run `git submodule update --init Pair-VPR` and download the ViT-G checkpoint from HuggingFace `CSIRORobotics/Pair-VPR`; for `edtformer`/`unipr3d` clone the model repo into `EDTformer/`/`UniPR-3D/`; `fol` needs nothing extra.
 
-### Results
-We evaluate on a real-world glacier UAV survey (589 images) and on six standard benchmark scenes (five Mip-NeRF360 scenes and the Tanks&Temples *Truck* scene). Under a fixed image budget, PairVPR-based selection attains the best average PSNR, SSIM, and LPIPS among the evaluated VPR selectors; on the glacier survey, moderate pruning reduces total runtime by roughly 40% (over 50% under more aggressive pruning) with only a modest loss in reconstruction quality. The full per-scene and per-budget tables are reported in the paper.
+## Results
+Evaluated on six benchmark scenes (five Mip-NeRF360 + Tanks&Temples *Truck*) and a real-world glacier UAV survey (589 images). PairVPR-based selection is the best VPR selector in both settings.
+
+**Benchmark scenes — average over 6 scenes at a fixed budget k = 100** (best in **bold**):
+
+| Selector | PSNR ↑ | SSIM ↑ | LPIPS ↓ |
+|----------|:------:|:------:|:-------:|
+| **PairVPR (ours)** | **20.75** | **0.606** | **0.372** |
+| EDTformer | 20.47 | 0.602 | 0.380 |
+| FoL | 19.77 | 0.590 | 0.380 |
+| UniPR-3D | 19.62 | 0.580 | 0.391 |
+
+**Glacier — reconstruction quality vs. subset size** (PairVPR selector):
+
+| Images (k) | SfM RMSE (px) ↓ | PSNR ↑ | SSIM ↑ | LPIPS ↓ |
+|:----------:|:---------------:|:------:|:------:|:-------:|
+| 589 (full) | 0.079 | 21.80 | 0.653 | 0.440 |
+| 557 | 0.080 | 21.69 | 0.644 | 0.450 |
+| 525 | 0.079 | 21.86 | 0.654 | 0.441 |
+| 493 | 0.082 | 21.47 | 0.638 | 0.450 |
+| 461 | 0.081 | 21.55 | 0.634 | 0.453 |
+| 428 | 0.082 | 21.43 | 0.635 | 0.456 |
+| 396 | 0.081 | 21.58 | 0.640 | 0.456 |
+| 364 | 0.084 | 21.23 | 0.626 | 0.457 |
+| 332 | 0.084 | 21.08 | 0.629 | 0.445 |
+| 300 | 0.090 | 20.51 | 0.622 | 0.461 |
+
+**Glacier — computational efficiency vs. subset size** (minutes; peak VRAM in GB):
+
+| Images (k) | SfM ↓ | 3DGS ↓ | VRAM ↓ |
+|:----------:|:-----:|:------:|:------:|
+| 589 (full) | 59.2 | 17.8 | 16.4 |
+| 557 | 55.3 | 17.5 | 16.0 |
+| 525 | 48.1 | 17.6 | 15.6 |
+| 493 | 43.3 | 17.5 | 15.0 |
+| 461 | 34.8 | 17.4 | 14.5 |
+| 428 | 28.7 | 17.4 | 13.9 |
+| 396 | 28.8 | 17.4 | 13.2 |
+| 364 | 24.0 | 17.4 | 12.3 |
+| 332 | 18.0 | 17.3 | 11.5 |
+| 300 | 15.7 | 17.5 | 11.1 |
+
+**Glacier — selection-method ablation** (PSNR ↑, mean over 4 runs; PairVPR is also best on SSIM and LPIPS at every budget):
+
+| Method | k = 300 | k = 332 | k = 364 |
+|--------|:-------:|:-------:|:-------:|
+| **PairVPR (ours)** | **20.54** | **20.98** | **21.20** |
+| FoL | 19.89 | 20.01 | 19.72 |
+| UniPR-3D | 19.84 | 19.94 | 19.99 |
+| EDTformer | 19.54 | 19.98 | 19.76 |
+
+Moderate pruning (e.g. k = 396) cuts total runtime by ~40% with near-peak quality; quality saturates around k = 525. Full per-scene and per-budget tables are in the paper.
