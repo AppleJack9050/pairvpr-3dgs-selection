@@ -1,18 +1,19 @@
 # Efficient 3D Gaussian Splatting Reconstruction via PairVPR-Based Image Selection
 
-With the spirit of reproducible research, this repository contains all the codes required to produce the image-selection results in the manuscript:
+With the spirit of reproducible research, this repository contains all the codes required to produce the image-selection results in the paper:
 
-> Sicheng Zhao, Arjun Pakrashi, and Soumyabrata Dev, Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based Image Selection: A Glacier UAV Case Study, *Applied Computing and Geosciences*, 2026.
+> Sicheng Zhao, Arjun Pakrashi, and Soumyabrata Dev, Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based Image Selection: A Glacier UAV Case Study, *Applied Computing and Geosciences*, 100378, 2026.
 
 Please cite the above paper if you intend to use whole/part of the code. This code is only for academic and research purposes.
 
 ```
-@article{zhao2026pairvpr,
-title = {Towards Efficient 3D Gaussian Splatting Reconstruction with PairVPR-Based Image Selection: A Glacier UAV Case Study},
-journal = {Applied Computing and Geosciences},
-year = {2026},
-note = {Manuscript submitted; under review},
-author = {Sicheng Zhao and Arjun Pakrashi and Soumyabrata Dev},
+@article{zhao2026towards,
+  title={Towards efficient 3D Gaussian Splatting reconstruction with PairVPR-based image selection: A glacier UAV case study},
+  author={Zhao, Sicheng and Pakrashi, Arjun and Dev, Soumyabrata},
+  journal={Applied Computing and Geosciences},
+  pages={100378},
+  year={2026},
+  publisher={Elsevier}
 }
 ```
 
